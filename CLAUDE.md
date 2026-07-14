@@ -43,16 +43,26 @@ Scribe.
 
 ## Critical gotchas (found by testing against the real app)
 
-1. **FeedRate / PlungeRate / RampRate are stored in units PER SECOND,
-   not per minute**, even though the UI displays and labels them
-   "mm/m" (per minute). Confirmed by creating a tool manually in
-   MillMage with UI values Feed Rate 2000mm/m, Plunge Rate 300mm/m, and
-   reading back the saved file: `"FeedRate": 33.333` (=2000/60),
-   `"PlungeRate": 5` (=300/60). **Always divide CSV feedrate/plungerate
-   (mm/min or in/min) by 60 before writing them into the JSON.** Set
-   `RampRate` to the same (already-divided) value as `PlungeRate`.
-   Diameter, Length, PassDepth, StepOver, RampAngle and SpindleSpeed
-   (RPM) need no such conversion, they're stored as displayed.
+1. **All stored values are canonically METRIC (mm / mm-per-second),
+   regardless of the tool's units.** `MetricTool` is a DISPLAY-ONLY
+   flag: it picks the units the UI shows (and converts stored mm to
+   inches for display when false); it does not change how values are
+   stored. Confirmed by loading a file with inch values +
+   `MetricTool: false`: the app displayed every value divided by 25.4
+   (e.g. stored `0.685` intended as 0.685" showed as "0.02697in" =
+   0.685mm converted). Also: toggling Tool Units in the UI does NOT
+   convert the numbers, so a user toggling units on an existing tool
+   silently changes its real size/feeds by 25.4x.
+   - Geometry from an inch-unit CSV row (`metric=0`): multiply
+     Diameter, Length, PassDepth, StepOver, Radius, TipDiameter,
+     TipLength by 25.4.
+   - **FeedRate / PlungeRate / RampRate are stored in mm PER SECOND**,
+     even though the UI labels them "mm/m" (per minute). Confirmed by
+     creating a tool with UI Feed Rate 2000mm/m and reading back
+     `"FeedRate": 33.333`. So: CSV mm/min -> /60; CSV in/min ->
+     *25.4/60. Set `RampRate` equal to `PlungeRate`.
+   - RampAngle, IncludedAngle and SpindleSpeed (RPM) are unit-free,
+     stored as displayed.
 
 2. **`TipDiameter` is a required field on every tool**, not just
    tapered geometries. Older reference files may omit it; the current
@@ -63,22 +73,50 @@ Scribe.
    `type=vee` or `type=engraver`): compute `ratio = cornerradius /
    diameter`.
    - `ratio ~ 0` -> `Type: "V-Bit"`, `Radius: 0`, `IncludedAngle: <angle>`.
-   - `0 < ratio < 0.5` -> `Type: "V-Bit"`, `Radius: cornerradius`,
-     `IncludedAngle: <angle>` (a rounded-tip V-bit, geometrically
-     valid).
-   - `ratio >= 0.5` -> geometrically there's no V left (radius equals
-     or exceeds half the diameter). Use `Type: "Ball Mill"`,
-     `Radius: diameter/2` (clamp), `IncludedAngle: 0`. Do **not** force
-     `Type: "V-Bit"` here: MillMage will flag Flute Length and Tip
-     Radius as invalid (red X) because a sharp/tapered V cannot have a
-     tip radius that wide.
-   - We deliberately avoid `Type: "Tapered Ball Mill"` for these rows.
-     It's a valid MillMage geometry (confirmed via UI) and requires
-     `Radius` strictly `< diameter/2` plus a recalculated `Length`
-     (cone height + ball height) that MillMage derives internally; we
-     couldn't reliably reverse-engineer that formula from one manually
-     edited sample, and reclassifying as plain "Ball Mill" sidesteps
-     the problem entirely with no loss of accuracy for these tools.
+     **A V-Bit must have `Radius: 0`.** MillMage has no rounded-tip
+     V-bit: a stored V-Bit with `Radius > 0` is shown in the UI as a
+     Tapered Ball Mill and red-X'd on Flute Length (seen on W06003/
+     W06004, ratio 0.333). So:
+   - `0 < ratio < 0.5 - epsilon` -> `Type: "Tapered Ball Mill"` (see
+     the convention bullet below), `Radius: cornerradius`,
+     `IncludedAngle: <angle>`, `Length` from the formula.
+   - `ratio >= 0.5 - epsilon` (use e.g. `epsilon = 0.001`, NOT a strict
+     `>= 0.5` check: the CSVs' mm->inch values are rounded, so a true
+     half ratio shows up as e.g. `0.0295276 / 0.05906 = 0.499959` on
+     the W0100x ball-tip engravers, which MillMage then rejects as
+     invalid V-Bits) -> geometrically there's no V left; the tip is a
+     full ball. If the tool is genuinely a tapered engraver (the
+     SpeTool W0100x family, per vendor specs) use
+     `Type: "Tapered Ball Mill"` with the SHANK diameter (next
+     bullet). Otherwise (e.g. W06016, a round-nose bit) use
+     `Type: "Ball Mill"`, `Radius: diameter/2` (clamp),
+     `IncludedAngle: 0`, and **`Length` must be >= `Radius`** — the
+     ball must fit inside the flute. W06016's CSV flutelength
+     (0.32813") is shorter than its radius (0.3425"), which MillMage
+     red-X's; clamp `Length` up to `Radius` in that case. Do **not**
+     force `Type: "V-Bit"` here either way.
+   - **Tapered Ball Mill convention** (reverse-engineered against the
+     app UI, W01003 sample; derived Flute Length matched to <0.001mm):
+     `Diameter` = the SHANK diameter (NOT the CSV `diameter`, which is
+     the tip-ball diameter), `Radius` = tip ball radius (= CSV
+     `cornerradius`), `IncludedAngle` = CSV `angle`, and `Length` is
+     the cone-extended flute length MillMage derives internally:
+     `Length = r*(1 - sin(a)) + (Diameter/2 - r*cos(a)) / tan(a)`
+     with `r = Radius`, `a = IncludedAngle/2` (ball cap height + cone
+     height, cone tangent to the tip ball). MillMage greys this field
+     out and recomputes it, so the stored value must match the formula.
+     `Radius` must be strictly `< Diameter/2`. For rounded-tip V rows
+     (W06003/W06004) `Diameter` is just the CSV `diameter` (the V
+     opens to the full cutting diameter). For the W0100x tapered
+     engravers the CSV `diameter` is the tip-ball diameter, and
+     `shaftdiameter` is 0, so shank sizes came from spetools.com
+     product pages: W01001/W01003 = 1/8" (3.175mm),
+     W01005/W01008/W01009 = 1/4" (6.35mm). Note the CSV `flutelength`
+     (actual fluted length, e.g. 15mm) is discarded — MillMage's model
+     extends the cone all the way to `Diameter` (e.g. 30.72mm for
+     W01003); the cutter profile is identical within real cutting
+     depths. Keep `StepOver` computed from the CSV tip diameter, not
+     the shank diameter.
    - `type=end` -> always `Type: "End Mill"` (cornerradius is always
      0 in the source data). `type=ball` -> always `Type: "Ball Mill"`
      (cornerradius is always exactly `diameter/2`).
@@ -102,7 +140,11 @@ Hardwood`, `Spetool - Aluminum Copper Brass`, `Spetool - Any Material`
 ## Validation checklist before delivering
 
 - JSON parses, keys match the confirmed schema on every tool.
-- No V-Bit with `Radius >= Diameter/2`.
-- No Ball Mill with `Radius != Diameter/2`.
+- Every stored value is in mm / mm-per-second (canonical metric),
+  including on `MetricTool: false` tools.
+- No V-Bit with `Radius != 0`.
+- No Ball Mill with `Radius != Diameter/2` or `Length < Radius`.
+- Every Tapered Ball Mill has `Radius < Diameter/2` and `Length`
+  exactly matching the derived-length formula.
 - Spot check a few tools' `FeedRate * 60` / `PlungeRate * 60` against
-  the original CSV mm/min values.
+  the original CSV values (x25.4 first for `metric=0` rows).
