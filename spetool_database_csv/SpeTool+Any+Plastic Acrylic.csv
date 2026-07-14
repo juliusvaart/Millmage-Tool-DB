@@ -1,0 +1,9 @@
+number,vendor,model,URL,name,type,diameter,cornerradius,flutelength,shaftdiameter,angle,numflutes,stickout,coating,metric,notes,machine,material,plungerate,feedrate,rpm,depth,cutpower,finishallowance,3dstepover,3dfeedrate,3drpm
+3001,SpeTool,W03001,,SpeTool W03001 0.25"" UP CUT,end,0.25,0,1,0.25,0,1,1.5,,0,,,,48,144,18000,0.25,,0,40,144,18000
+3002,SpeTool,W03002,,SpeTool W03002 0.125"" UP CUT,end,0.125,0,0.75,0.25,0,1,1,,0,,,,24,72,18000,0.125,,0,40,72,18000
+3003,SpeTool,W03003,,SpeTool W03003 0.25"" UP CUT,end,0.25,0,1.5,0.25,0,1,2,,0,,,,48,144,18000,0.25,,0,40,144,18000
+3004,SpeTool,W03004,,SpeTool W03004 0.25"" UP CUT,end,0.25,0,0.5,0.25,0,1,1,,0,,,,48,144,18000,0.25,,0,40,144,18000
+3005,SpeTool,W03005,,SpeTool W03005 0.125"" UP CUT,end,0.125,0,0.5,0.25,0,1,1,,0,,,,24,72,18000,0.125,,0,40,72,18000
+3006,SpeTool,W03006,,SpeTool W03006 0.25"" UP CUT,end,0.25,0,1,0.25,0,1,2,,0,,,,48,144,18000,0.25,,0,40,144,18000
+3010,SpeTool,W03010,,SpeTool W03010 0.125"" UP CUT,end,0.125,0,0.75,0.125,0,1,1,,0,,,,24,72,18000,0.125,,0,40,72,18000
+3011,SpeTool,W03011,,SpeTool W03011 0.0625"" UP CUT,end,0.0625,0,0.1875,0.125,0,1,1,,0,,,,6,18,18000,0.0625,,0,40,18,18000
