@@ -131,6 +131,37 @@ Scribe.
 6. Tool `Name` fields in the CSV use doubled quotes (`0.25""`) for the
    inch mark; normalize to a single `"`.
 
+7. **`numflutes` is unreliable in the CSVs; the `.tools` file
+   deliberately overrides it** — keep these on any rebuild from CSV.
+   Two failure modes were found: `Spetool+Any+Any.csv` has
+   `numflutes=2` on EVERY row (a file-wide default, not data), and the
+   MDF Laminate file disagrees with the other material files on several
+   models (it says 1 where Hardwood/Softwood/Plastic say 2). Corrections
+   verified against spetools.com product pages (the metric W0x5xx SKUs
+   are on the EU/UK site, `spetools.com/en-eu/...`):
+   - `SpeTool 60mm 4 FLUTES SPOILBOARD` (model 01) -> 4
+   - `SpeTool 16.97mm Insert Carbide V Groove ... Single Flute` (model
+     01) -> 1
+   - W03501-W03506 -> 1 (metric siblings of the W030xx O-flute
+     single-flute line; metric SKUs = imperial series + 500, cf.
+     W020xx/W025xx compressions)
+   - W06017, W06021 -> 4 (all materials; vendor: 4-flute solid carbide
+     V-groove)
+   - W06003, W06004, W06005 -> 2 (fixes the MDF Laminate outlier only)
+   - W05005 -> 3, W05006 -> 3, W05009 -> 4, W05014 -> 5 (surfacing
+     bits, vendor wing counts)
+   - W06506, W06507, W06508, W06509 -> 3; W06510 -> 1 (EU metric
+     V-bits, vendor pages)
+   - W06505 -> 1 (0.2mm-tip signmaking engraver, same class as
+     W06008/09/10 which are 1-flute everywhere; inferred, not on a
+     vendor page)
+   Unverifiable (no public vendor data, CSV value kept): W047xx,
+   W049xx, W05501-03, W05007/W05008 (2+2 wing design, counted as 2),
+   A01501, W09501, W065xx not listed above.
+   The vendor CSVs are kept as SpeTool's original exports; don't edit
+   them. (Same reason the `SoeTool W01508` vendor-name typo in the
+   WOOD MDF SIGN-FOAM file is left as-is.)
+
 ## Category naming used
 
 One category per source CSV, prefixed `Spetool - `, e.g. `Spetool -
